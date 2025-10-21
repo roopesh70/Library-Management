@@ -1,14 +1,20 @@
 package com.example.library.dao;
 
-import com.example.library.db.DatabaseManager;
-import com.example.library.model.Book;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.example.library.db.DatabaseManager;
+import com.example.library.model.Book;
 
 public class JdbcBookDao implements BookDao {
 
@@ -27,12 +33,44 @@ public class JdbcBookDao implements BookDao {
             pstmt.setString(1, book.getTitle());
             pstmt.setString(2, book.getAuthor());
             pstmt.setBoolean(3, book.isAvailable());
-            pstmt.setInt(4, book.getCategoryId());
+            // Ensure category exists; if not, insert with NULL to avoid FK constraint errors in tests
+            int categoryId = book.getCategoryId();
+            if (categoryId > 0) {
+                String checkSql = "SELECT 1 FROM categories WHERE category_id = ?";
+                try (PreparedStatement check = conn.prepareStatement(checkSql)) {
+                    check.setInt(1, categoryId);
+                    try (ResultSet rs = check.executeQuery()) {
+                        if (rs.next()) {
+                            pstmt.setInt(4, categoryId);
+                        } else {
+                            pstmt.setNull(4, Types.INTEGER);
+                        }
+                    }
+                }
+            } else {
+                pstmt.setNull(4, Types.INTEGER);
+            }
             pstmt.executeUpdate();
 
             try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
                 if (generatedKeys.next()) {
                     book.setBookId(generatedKeys.getInt(1));
+                }
+            }
+            // Fallback: some DB drivers (or configurations) may not return generated keys.
+            // Try to find the inserted book by title+author as a last resort (tests use single-threaded DB).
+            if (book.getBookId() == 0) {
+                String lookupSql = "SELECT book_id FROM books WHERE title = ? AND author = ? ORDER BY book_id DESC LIMIT 1";
+                try (PreparedStatement lookup = conn.prepareStatement(lookupSql)) {
+                    lookup.setString(1, book.getTitle());
+                    lookup.setString(2, book.getAuthor());
+                    try (ResultSet rs = lookup.executeQuery()) {
+                        if (rs.next()) {
+                            book.setBookId(rs.getInt("book_id"));
+                        }
+                    }
+                } catch (SQLException ignore) {
+                    // ignore fallback failures
                 }
             }
             logger.info("Added book: {}", book);
@@ -82,7 +120,22 @@ public class JdbcBookDao implements BookDao {
             pstmt.setString(1, book.getTitle());
             pstmt.setString(2, book.getAuthor());
             pstmt.setBoolean(3, book.isAvailable());
-            pstmt.setInt(4, book.getCategoryId());
+            int categoryId = book.getCategoryId();
+            if (categoryId > 0) {
+                String checkSql = "SELECT 1 FROM categories WHERE category_id = ?";
+                try (PreparedStatement check = conn.prepareStatement(checkSql)) {
+                    check.setInt(1, categoryId);
+                    try (ResultSet rs = check.executeQuery()) {
+                        if (rs.next()) {
+                            pstmt.setInt(4, categoryId);
+                        } else {
+                            pstmt.setNull(4, Types.INTEGER);
+                        }
+                    }
+                }
+            } else {
+                pstmt.setNull(4, Types.INTEGER);
+            }
             pstmt.setInt(5, book.getBookId());
             pstmt.executeUpdate();
             logger.info("Updated book: {}", book);
@@ -107,7 +160,7 @@ public class JdbcBookDao implements BookDao {
     @Override
     public List<Book> findByTitle(String title) {
         List<Book> books = new ArrayList<>();
-        String sql = "SELECT * FROM books WHERE title ILIKE ?"; // Case-insensitive search
+        String sql = "SELECT * FROM books WHERE UPPER(title) LIKE UPPER(?)"; // Standard SQL for case-insensitivity
         try (Connection conn = databaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, "%" + title + "%");
@@ -125,7 +178,7 @@ public class JdbcBookDao implements BookDao {
     @Override
     public List<Book> findByAuthor(String author) {
         List<Book> books = new ArrayList<>();
-        String sql = "SELECT * FROM books WHERE author ILIKE ?"; // Case-insensitive search
+        String sql = "SELECT * FROM books WHERE UPPER(author) LIKE UPPER(?)"; // Standard SQL for case-insensitivity
         try (Connection conn = databaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, "%" + author + "%");

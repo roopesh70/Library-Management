@@ -1,11 +1,13 @@
 package com.example.library.service;
 
-import com.example.library.dao.UserDao;
-import com.example.library.model.User;
+
+import java.util.List;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Optional;
+import com.example.library.dao.UserDao;
+import com.example.library.model.User;
 
 /**
  * Service for user authentication.
@@ -29,9 +31,10 @@ public class AuthenticationService {
      */
     public boolean login(String username, String password) {
         // This is a mock authentication. In a real app, you'd validate the password.
-        Optional<User> userOptional = userDao.findByName(username);
-        if (userOptional.isPresent()) {
-            this.currentUser = userOptional.get();
+        List<User> users = userDao.findByName(username);
+        if (!users.isEmpty()) {
+            // If multiple users have the same name, this mock implementation logs in the first one found.
+            this.currentUser = users.get(0);
             logger.info("User '{}' logged in successfully.", username);
             return true;
         }

@@ -7,7 +7,7 @@ import java.util.Objects;
 /**
  * Represents an abstract user of the library.
  */
-abstract class User {
+public abstract class User {
 
     protected int userId;
     protected String name;

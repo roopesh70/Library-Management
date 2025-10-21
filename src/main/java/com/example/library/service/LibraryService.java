@@ -1,21 +1,24 @@
 package com.example.library.service;
 
+import java.time.LocalDate;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.example.library.dao.BookDao;
 import com.example.library.dao.TransactionDao;
+import com.example.library.interfaces.Searchable;
 import com.example.library.model.Book;
 import com.example.library.model.Student;
 import com.example.library.model.Transaction;
 import com.example.library.model.User;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.time.LocalDate;
-import java.util.List;
 
 /**
  * Core service for library operations.
  */
-public class LibraryService {
+public class LibraryService implements Searchable {
 
     private static final Logger logger = LoggerFactory.getLogger(LibraryService.class);
     private static final int BORROW_DURATION_DAYS = 14;
@@ -79,6 +82,7 @@ public class LibraryService {
      * @return true if the return operation is successful, false otherwise.
      */
     public boolean returnBook(Book book) {
+        AtomicBoolean success = new AtomicBoolean(false);
         transactionDao.findActiveTransactionByBookId(book.getBookId()).ifPresentOrElse(transaction -> {
             // Calculate fine
             transaction.setReturnDate(LocalDate.now());
@@ -93,31 +97,25 @@ public class LibraryService {
             logger.info("Book {} returned.", book.getTitle());
             if (fine > 0) {
                 System.out.printf("Book returned successfully. A fine of $%.2f has been applied for the overdue return.%n", fine);
+            } else {
+                System.out.println("Book returned successfully.");
             }
+            success.set(true);
         }, () -> {
             logger.warn("No active transaction found for book {}", book.getTitle());
             System.out.println("Could not process return: No active borrow record found for this book.");
+            success.set(false);
         });
-        return true; // Simplified return
+        return success.get();
     }
 
-    /**
-     * Searches for books by title.
-     *
-     * @param title The title to search for.
-     * @return A list of books matching the title.
-     */
-    public List<Book> searchBookByTitle(String title) {
+    @Override
+    public List<Book> searchByTitle(String title) {
         return bookDao.findByTitle(title);
     }
 
-    /**
-     * Searches for books by author.
-     *
-     * @param author The author to search for.
-     * @return A list of books matching the author.
-     */
-    public List<Book> searchBookByAuthor(String author) {
+    @Override
+    public List<Book> searchByAuthor(String author) {
         return bookDao.findByAuthor(author);
     }
 
@@ -140,7 +138,7 @@ public class LibraryService {
         return transactionDao.findByUserId(userId).stream()
                 .filter(t -> t.getReturnDate() == null)
                 .map(t -> bookDao.findById(t.getBookId()))
-                .flatMap(Optional::stream)
+                .flatMap(java.util.Optional::stream)
                 .collect(java.util.stream.Collectors.toList());
     }
 }

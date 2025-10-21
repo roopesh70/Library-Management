@@ -71,20 +71,21 @@ public class JdbcUserDao implements UserDao {
     }
 
     @Override
-    public Optional<User> findByName(String name) {
+    public List<User> findByName(String name) {
+        List<User> users = new ArrayList<>();
         String sql = "SELECT * FROM users WHERE name = ?";
         try (Connection conn = databaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, name);
             try (ResultSet rs = pstmt.executeQuery()) {
-                if (rs.next()) {
-                    return Optional.of(mapRowToUser(rs));
+                while (rs.next()) {
+                    users.add(mapRowToUser(rs));
                 }
             }
         } catch (SQLException e) {
             logger.error("Error finding user by name", e);
         }
-        return Optional.empty();
+        return users;
     }
 
     @Override

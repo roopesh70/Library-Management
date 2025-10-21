@@ -21,13 +21,23 @@ public class MainApp {
 
         // Load configuration
         Properties props = new Properties();
+        double fineRate;
         try (InputStream input = MainApp.class.getClassLoader().getResourceAsStream("application.properties")) {
-            props.load(input);
-        } catch (Exception e) {
-            logger.error("Failed to load application properties.", e);
-            return;
+            if (input == null) {
+                logger.warn("Warning: application.properties not found. Using default fine rate.");
+            } else {
+                props.load(input);
+            }
+        } catch (java.io.IOException e) {
+            logger.error("Error reading application.properties. Using default fine rate.", e);
         }
-        double fineRate = Double.parseDouble(props.getProperty("fine.rate.per.day", "0.50"));
+
+        try {
+            fineRate = Double.parseDouble(props.getProperty("fine.rate.per.day", "0.50"));
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid fine rate in properties. Using default: 0.50.", e);
+            fineRate = 0.50;
+        }
 
         // Initialize components
         DatabaseManager dbManager = new DatabaseManager();
@@ -45,8 +55,9 @@ public class MainApp {
         seedData(userDao, bookDao);
 
         // Start CLI
-        Scanner scanner = new Scanner(System.in);
-        new MainMenu(scanner, authService, libraryService, reportGenerator, bookDao).run();
+        try (Scanner scanner = new Scanner(System.in)) {
+            new MainMenu(scanner, authService, libraryService, reportGenerator, bookDao, userDao).run();
+        }
 
         logger.info("Library Management System shutting down.");
     }

@@ -25,12 +25,12 @@ public interface UserDao {
     Optional<User> findById(int userId);
 
     /**
-     * Finds a user by their name.
+     * Finds users by their name.
      *
      * @param name The name of the user to find.
-     * @return An Optional containing the user if found, or empty if not.
+     * @return A list of users with the given name.
      */
-    Optional<User> findByName(String name);
+    List<User> findByName(String name);
 
     /**
      * Retrieves all users from the database.

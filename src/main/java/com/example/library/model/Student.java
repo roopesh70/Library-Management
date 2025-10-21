@@ -44,10 +44,10 @@ public class Student extends User {
     @Override
     public String toString() {
         return "Student{"
-               + "userId=" + userId
-               + ", name='" + name + "'"
-               + ", department='" + department + "'"
-               + ", yearOfStudy=" + yearOfStudy
-               + "'";
+       + "userId=" + userId
+       + ", name='" + name + "'"
+       + ", department='" + department + "'"
+       + ", yearOfStudy=" + yearOfStudy
+       + "}";
     }
 }
